@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NHL Kierrosraportti + Videot</title>
+    <title>NHL Tulokset & Videot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
@@ -14,7 +14,7 @@
 
     <div class="max-w-xl mx-auto">
         <header class="mb-12 text-center">
-            <h1 class="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-2">NHL Maalikoosteet</h1>
+            <h1 class="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-2">NHL Kierros & Koosteet</h1>
             <div class="flex items-center justify-between bg-slate-900/50 rounded-full p-1 border border-slate-800 shadow-lg">
                 <button onclick="changeDate(-1)" class="w-10 h-10 flex items-center justify-center hover:bg-slate-800 rounded-full transition-all text-slate-400">←</button>
                 <input type="date" id="datePicker" onchange="selectDate(this.value)" class="bg-transparent text-sm font-bold text-white outline-none cursor-pointer px-4">
@@ -22,7 +22,7 @@
             </div>
         </header>
 
-        <div id="loading" class="hidden text-center py-20 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Päivitetään otteluita...</div>
+        <div id="loading" class="hidden text-center py-20 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Päivitetään tilanteita...</div>
         <div id="resultsContainer" class="space-y-12"></div>
     </div>
 
@@ -47,6 +47,7 @@
             loadingDiv.classList.remove('hidden');
 
             try {
+                // Käytetään varmaa proxyä
                 const url = `https://corsproxy.io/?${encodeURIComponent('https://api-web.nhle.com/v1/score/' + dateStr)}`;
                 const response = await fetch(url);
                 const data = await response.json();
@@ -62,16 +63,22 @@
                     const gameSection = document.createElement('div');
                     gameSection.className = "animate-in slide-in-from-bottom-2 duration-500";
                     
+                    // Ottelukohtainen videolinkki (Recap tai Center)
+                    const gameVideoUrl = `https://www.nhl.com/gamecenter/${game.id}`;
+
                     let html = `
                         <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
-                            <div class="flex gap-4 items-center">
-                                <span class="text-xl font-extrabold text-white tracking-tighter">${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}</span>
+                            <div class="flex flex-col">
+                                <span class="text-xl font-extrabold text-white tracking-tighter italic uppercase">${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}</span>
+                                <a href="${gameVideoUrl}" target="_blank" class="text-[9px] font-black text-blue-500 hover:text-blue-400 mt-1 uppercase tracking-widest">
+                                    Katso ottelukooste →
+                                </a>
                             </div>
                             <div class="text-2xl font-black text-slate-400 tabular-nums">
                                 <span>${game.awayTeam.score} - ${game.homeTeam.score}</span>
                             </div>
                         </div>
-                        <div class="space-y-8">`;
+                        <div class="space-y-6">`;
 
                     if (game.goals && game.goals.length > 0) {
                         game.goals.forEach(goal => {
@@ -82,14 +89,8 @@
                                 });
                             }
 
-                            // VIDEO-LINKIN MUODOSTAMINEN
-                            // NHL käyttää yleensä muotoa https://www.nhl.com/video/[clipId]
-                            const videoUrl = goal.highlightClip 
-                                ? `https://www.nhl.com/video/t-${game.id}/c-${goal.highlightClip}` 
-                                : `https://www.nhl.com/video/search?q=${goal.firstName.default}+${goal.lastName.default}`;
-
                             html += `
-                                <div class="relative pl-4 border-l-2 border-slate-800 group">
+                                <div class="relative pl-4 border-l-2 border-slate-800">
                                     <div class="flex justify-between items-baseline mb-1">
                                         <h4 class="text-sm font-bold text-slate-200">
                                             ${goal.firstName.default} ${goal.lastName.default}
@@ -97,16 +98,13 @@
                                         </h4>
                                         <span class="text-[10px] font-mono text-slate-600">${goal.timeInPeriod}</span>
                                     </div>
-                                    <p class="text-[11px] text-slate-500 italic mb-2">
+                                    <p class="text-[11px] text-slate-500 italic leading-relaxed">
                                         ${assistNames.length > 0 ? assistNames.join(', ') : 'Ilman syöttäjiä'}
                                     </p>
-                                    <a href="${videoUrl}" target="_blank" class="inline-flex items-center text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-400 transition-colors">
-                                        Katso video <span class="ml-1">→</span>
-                                    </a>
                                 </div>`;
                         });
                     } else {
-                        html += `<p class="text-[10px] text-slate-700 italic uppercase">Ei maaleja raportoitu</p>`;
+                        html += `<p class="text-[10px] text-slate-700 italic uppercase">Ei maaleja</p>`;
                     }
 
                     html += `</div>`;
