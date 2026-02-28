@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NHL Tulokset & Suomalaisseuranta</title>
+    <title>NHL Suomi - Viime Yö</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 p-4 min-h-screen font-sans">
@@ -14,145 +14,132 @@
                 NHL <span class="text-blue-500 underline decoration-4 text-2xl">Kierrosraportti</span>
             </h1>
             
-            <div class="flex items-center justify-center gap-4 mt-8 bg-slate-900 p-4 rounded-3xl border border-slate-800 shadow-2xl">
-                <button onclick="changeDate(-1)" class="p-2 hover:text-blue-400 transition-colors font-bold text-sm">← Edellinen</button>
-                <input type="date" id="datePicker" onchange="selectDate(this.value)" class="bg-slate-800 text-white text-xs p-2 rounded-lg border border-slate-700 outline-none focus:border-blue-500 cursor-pointer">
-                <button onclick="changeDate(1)" class="p-2 hover:text-blue-400 transition-colors font-bold text-sm">Seuraava →</button>
+            <div class="flex items-center justify-center gap-4 mt-8 bg-slate-900 p-4 rounded-3xl border border-slate-800 shadow-2xl font-bold">
+                <button onclick="changeDate(-1)" class="p-2 hover:text-blue-400 transition-colors">← Edellinen</button>
+                <input type="date" id="datePicker" onchange="selectDate(this.value)" class="bg-slate-800 text-white text-xs p-2 rounded-lg border border-slate-700 outline-none">
+                <button onclick="changeDate(1)" class="p-2 hover:text-blue-400 transition-colors">Seuraava →</button>
             </div>
         </header>
 
+        <div id="finnishSummary" class="mb-6 p-4 bg-blue-600/10 border border-blue-500/30 rounded-2xl text-center hidden animate-bounce"></div>
+
         <div id="loading" class="hidden text-center py-20 text-blue-500 font-bold animate-pulse text-xs tracking-widest uppercase">
-            Haetaan NHL-pöytäkirjoja...
+            Haetaan NHL-dataa...
         </div>
 
-        <div id="resultsContainer" class="space-y-6 pb-20"></div>
+        <div id="resultsContainer" class="space-y-6 pb-20 text-xs"></div>
     </div>
 
     <script>
-
-async function fetchNHLResults() {
-    const container = document.getElementById('resultsContainer');
-    const loadingDiv = document.getElementById('loading');
-    const dateStr = currentDate.toISOString().split('T')[0];
-    
-    container.innerHTML = '';
-    loadingDiv.classList.remove('hidden');
-
-    // Luodaan paikka Suomi-yhteenvedolle, jos sitä ei ole
-    let summaryDiv = document.getElementById('finnishSummary');
-    if (!summaryDiv) {
-        summaryDiv = document.createElement('div');
-        summaryDiv.id = 'finnishSummary';
-        summaryDiv.className = "mb-6 p-4 bg-blue-600/10 border border-blue-500/30 rounded-2xl text-center hidden";
-        container.parentNode.insertBefore(summaryDiv, container);
-    } else {
-        summaryDiv.classList.add('hidden');
-    }
-
-    try {
-        const targetUrl = `https://api-web.nhle.com/v1/score/${dateStr}`;
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        const finnishIds = [8478420, 8478427, 8477493, 8476455, 8477931, 8480002, 8477444, 8479344, 8482671, 8482149, 8480830, 8479318, 8480145, 8481534, 8475828, 8479337, 8481546, 8484166, 8482745, 8480222];
         
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Yhteysvirhe");
+        let currentDate = new Date();
+        currentDate.setHours(currentDate.getHours() - 8); // NHL-aika
 
-        const data = await response.json();
-        const games = data.games || [];
-        
-        loadingDiv.classList.add('hidden');
+        document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
 
-        if (games.length === 0) {
-            container.innerHTML = `<div class="text-center p-16 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800 text-slate-600 uppercase text-[10px] tracking-widest font-bold">Ei otteluita tänä päivänä</div>`;
-            return;
+        function selectDate(val) {
+            currentDate = new Date(val);
+            fetchNHLResults();
         }
 
-        let totalGoals = 0;
-        let totalAssists = 0;
+        function changeDate(days) {
+            currentDate.setDate(currentDate.getDate() + days);
+            document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
+            fetchNHLResults();
+        }
 
-        games.forEach(game => {
-            const gameCard = document.createElement('div');
-            gameCard.className = "bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl mb-6";
+        async function fetchNHLResults() {
+            const container = document.getElementById('resultsContainer');
+            const loadingDiv = document.getElementById('loading');
+            const summaryDiv = document.getElementById('finnishSummary');
+            const dateStr = currentDate.toISOString().split('T')[0];
             
-            const awayScore = game.awayTeam?.score ?? 0;
-            const homeScore = game.homeTeam?.score ?? 0;
-            const status = game.gameState === 'FINAL' ? 'LOPPUNUT' : (game.gameState === 'LIVE' ? 'LIVE' : 'TULEVA');
+            container.innerHTML = '';
+            summaryDiv.classList.add('hidden');
+            loadingDiv.classList.remove('hidden');
 
-            let html = `
-                <div class="bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b border-slate-700">
-                    <div class="flex items-center gap-3">
-                        <span class="font-black text-xl text-white italic tracking-tighter">${game.awayTeam.abbrev}</span>
-                        <span class="text-slate-600 font-bold text-sm">@</span>
-                        <span class="font-black text-xl text-white italic tracking-tighter">${game.homeTeam.abbrev}</span>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">${status}</p>
-                        <span class="text-2xl font-black text-blue-400 font-mono">${awayScore} - ${homeScore}</span>
-                    </div>
-                </div>
-                <div class="p-5 space-y-3">`;
+            try {
+                const targetUrl = `https://api-web.nhle.com/v1/score/${dateStr}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error("Yhteysvirhe");
 
-            if (game.goals && game.goals.length > 0) {
-                game.goals.forEach(goal => {
-                    const isFinScorer = finnishIds.includes(goal.playerId);
-                    if (isFinScorer) totalGoals++;
+                const data = await response.json();
+                const games = data.games || [];
+                
+                loadingDiv.classList.add('hidden');
+
+                if (games.length === 0) {
+                    container.innerHTML = `<div class="text-center p-10 bg-slate-900 rounded-2xl border border-slate-800 text-slate-500 uppercase">Ei otteluita tänä päivänä</div>`;
+                    return;
+                }
+
+                let totalGoals = 0;
+                let totalAssists = 0;
+
+                games.forEach(game => {
+                    const gameCard = document.createElement('div');
+                    gameCard.className = "bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl mb-6";
                     
-                    let assists = [];
-                    let hasFinAssist = false;
-                    
-                    // Korjattu syöttäjien haku
-                    if (goal.assist1PlayerId) {
-                        const a1Name = goal.assist1Name?.default || goal.assist1Name || "Syöttäjä";
-                        assists.push(a1Name);
-                        if (finnishIds.includes(goal.assist1PlayerId)) {
-                            hasFinAssist = true;
-                            totalAssists++;
-                        }
+                    const awayScore = game.awayTeam?.score ?? 0;
+                    const homeScore = game.homeTeam?.score ?? 0;
+                    const status = game.gameState === 'FINAL' ? 'LOPPUNUT' : 'LIVE';
+
+                    let html = `
+                        <div class="bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b border-slate-700">
+                            <span class="font-black text-xl text-white italic underline decoration-blue-500">${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}</span>
+                            <span class="text-2xl font-black text-blue-400 font-mono">${awayScore} - ${homeScore}</span>
+                        </div>
+                        <div class="p-5 space-y-2">`;
+
+                    if (game.goals && game.goals.length > 0) {
+                        game.goals.forEach(goal => {
+                            const isFinScorer = finnishIds.includes(goal.playerId);
+                            if (isFinScorer) totalGoals++;
+                            
+                            let assists = [];
+                            if (goal.assist1PlayerId) {
+                                assists.push(goal.assist1Name?.default || goal.assist1Name);
+                                if (finnishIds.includes(goal.assist1PlayerId)) totalAssists++;
+                            }
+                            if (goal.assist2PlayerId) {
+                                assists.push(goal.assist2Name?.default || goal.assist2Name);
+                                if (finnishIds.includes(goal.assist2PlayerId)) totalAssists++;
+                            }
+
+                            const assistText = assists.length > 0 ? `Syöttäjät: ${assists.join(', ')}` : 'Ilman syöttäjiä';
+
+                            html += `
+                                <div class="flex flex-col gap-1 p-2 rounded-xl border ${isFinScorer ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800'}">
+                                    <div class="flex justify-between font-bold">
+                                        <span class="${isFinScorer ? 'text-blue-400' : 'text-slate-300'}">${isFinScorer ? '🇫🇮 ' : ''}${goal.firstName.default} ${goal.lastName.default} (${goal.teamAbbrev.default || goal.teamAbbrev})</span>
+                                        <span class="text-[10px] text-slate-500">${goal.timeInPeriod}</span>
+                                    </div>
+                                    <div class="text-[10px] text-slate-500 italic leading-none">${assistText}</div>
+                                </div>`;
+                        });
+                    } else {
+                        html += `<p class="text-[10px] text-slate-700 text-center uppercase py-2 tracking-tighter">Ei maaleja</p>`;
                     }
-                    if (goal.assist2PlayerId) {
-                        const a2Name = goal.assist2Name?.default || goal.assist2Name || "Syöttäjä";
-                        assists.push(a2Name);
-                        if (finnishIds.includes(goal.assist2PlayerId)) {
-                            hasFinAssist = true;
-                            totalAssists++;
-                        }
-                    }
-                    
-                    const isFinInvolved = isFinScorer || hasFinAssist;
-                    const assistText = assists.length > 0 ? `Syöttäjät: ${assists.join(', ')}` : 'Ilman syöttäjiä';
-
-                    html += `
-                        <div class="flex flex-col gap-1 p-3 rounded-2xl border ${isFinInvolved ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800 bg-slate-800/20'}">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs ${isFinScorer ? 'text-blue-400 font-black' : 'text-slate-200 font-bold'}">
-                                    ${isFinScorer ? '🇫🇮 ' : ''}${goal.firstName?.default || goal.firstName} ${goal.lastName?.default || goal.lastName} (${goal.teamAbbrev})
-                                </span>
-                                <span class="text-[9px] text-slate-500 font-mono font-bold">${goal.timeInPeriod} / ${goal.period}. erä</span>
-                            </div>
-                            <div class="text-[10px] ${hasFinAssist ? 'text-blue-300/80 font-medium' : 'text-slate-500'} italic ml-1">
-                                ${assistText}
-                            </div>
-                        </div>`;
+                    html += `</div>`;
+                    gameCard.innerHTML = html;
+                    container.appendChild(gameCard);
                 });
-            } else {
-                html += `<p class="text-[10px] text-slate-700 text-center uppercase tracking-widest py-4 font-bold italic">Ei maaleja raportoitu</p>`;
-            }
-            html += `</div>`;
-            gameCard.innerHTML = html;
-            container.appendChild(gameCard);
-        });
 
-        // Päivitetään yhteenveto
-        if (totalGoals > 0 || totalAssists > 0) {
-            summaryDiv.innerHTML = `<p class="text-sm font-black text-blue-400 uppercase tracking-tighter italic">🇫🇮 Suomalaistehot: ${totalGoals} maalia & ${totalAssists} syöttöä</p>`;
-            summaryDiv.classList.remove('hidden');
+                if (totalGoals > 0 || totalAssists > 0) {
+                    summaryDiv.innerHTML = `<p class="text-sm font-black text-blue-400 uppercase italic leading-none tracking-tighter">🇫🇮 Suomalaiset tänään: ${totalGoals} maalia & ${totalAssists} syöttöä</p>`;
+                    summaryDiv.classList.remove('hidden');
+                }
+
+            } catch (err) {
+                loadingDiv.innerHTML = "Virhe datan haussa. Kokeile päivittää sivu.";
+                console.error(err);
+            }
         }
 
-    } catch (err) {
-        loadingDiv.innerHTML = `<div class="p-4 bg-red-900/20 border border-red-500/50 rounded-2xl text-red-400 text-[10px] font-bold uppercase tracking-widest text-center">Yhteysvirhe NHL-palvelimeen.</div>`;
-    }
-}
-
-
+        fetchNHLResults();
     </script>
 </body>
 </html>
