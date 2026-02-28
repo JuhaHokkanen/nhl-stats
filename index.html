@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NHL Tulokset - GitHub Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 p-4 min-h-screen font-sans">
+
+    <div class="max-w-2xl mx-auto">
+        <header class="text-center my-6">
+            <h1 class="text-3xl font-black uppercase italic tracking-tighter text-white">
+                NHL <span class="text-blue-500 underline decoration-4 text-2xl">Kierros</span>
+            </h1>
+            
+            <div class="flex items-center justify-center gap-4 mt-8 bg-slate-900 p-4 rounded-3xl border border-slate-800 shadow-2xl">
+                <button onclick="changeDate(-1)" class="p-2 hover:text-blue-400 transition-colors font-bold text-sm">← Edellinen</button>
+                <input type="date" id="datePicker" onchange="selectDate(this.value)" class="bg-slate-800 text-white text-xs p-2 rounded-lg border border-slate-700 outline-none focus:border-blue-500">
+                <button onclick="changeDate(1)" class="p-2 hover:text-blue-400 transition-colors font-bold text-sm">Seuraava →</button>
+            </div>
+        </header>
+
+        <div id="loading" class="hidden text-center py-20 text-blue-500 font-bold animate-pulse text-xs tracking-widest uppercase">
+            Haetaan NHL-dataa...
+        </div>
+
+        <div id="resultsContainer" class="space-y-6 pb-20"></div>
+    </div>
+
+    <script>
+        const finnishIds = [8478420, 8478427, 8477493, 8476455, 8477931, 8480002, 8477444, 8479344, 8482671, 8482149, 8480830];
+        let currentDate = new Date();
+        currentDate.setHours(currentDate.getHours() - 8);
+
+        function selectDate(val) {
+            currentDate = new Date(val);
+            fetchNHLResults();
+        }
+
+        function changeDate(days) {
+            currentDate.setDate(currentDate.getDate() + days);
+            document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
+            fetchNHLResults();
+        }
+
+        async function fetchNHLResults() {
+            const container = document.getElementById('resultsContainer');
+            const loadingDiv = document.getElementById('loading');
+            const dateStr = currentDate.toISOString().split('T')[0];
+            
+            container.innerHTML = '';
+            loadingDiv.classList.remove('hidden');
+
+            try {
+                // KÄYTETÄÄN JULKISTA PROXYA (AllOrigins), jotta CORS ei estä hakua GitHub Pagesissa
+                const targetUrl = `https://api-web.nhle.com/v1/score/${dateStr}`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+                
+                const response = await fetch(proxyUrl);
+                const proxyData = await response.json();
+                const data = JSON.parse(proxyData.contents); // AllOrigins palauttaa datan merkkijonona 'contents'-kentässä
+                
+                const games = data.games || [];
+                loadingDiv.classList.add('hidden');
+
+                if (games.length === 0) {
+                    container.innerHTML = `<div class="text-center p-10 bg-slate-900 rounded-2xl border border-slate-800 text-slate-500 uppercase text-xs">Ei otteluita tänä päivänä</div>`;
+                    return;
+                }
+
+                games.forEach(game => {
+                    const gameCard = document.createElement('div');
+                    gameCard.className = "bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl";
+                    
+                    const awayScore = game.awayTeam.score ?? 0;
+                    const homeScore = game.homeTeam.score ?? 0;
+
+                    let html = `
+                        <div class="bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b border-slate-700">
+                            <span class="font-black text-xl text-white">${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}</span>
+                            <span class="text-2xl font-black text-blue-400">${awayScore} - ${homeScore}</span>
+                        </div>
+                        <div class="p-5 space-y-2">`;
+
+                    if (game.goals && game.goals.length > 0) {
+                        game.goals.forEach(goal => {
+                            const isFin = finnishIds.includes(goal.playerId);
+                            html += `
+                                <div class="flex items-center gap-3 p-2 rounded-xl border ${isFin ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800'} text-xs">
+                                    <span class="${isFin ? 'text-blue-400 font-bold' : 'text-slate-300'}">${isFin ? '🇫🇮 ' : ''}${goal.firstName.default} ${goal.lastName.default} (${goal.teamAbbrev})</span>
+                                </div>`;
+                        });
+                    } else {
+                        html += `<p class="text-[10px] text-slate-700 text-center uppercase">Ei maaleja</p>`;
+                    }
+                    html += `</div>`;
+                    gameCard.innerHTML = html;
+                    container.appendChild(gameCard);
+                });
+            } catch (err) {
+                loadingDiv.innerHTML = "Virhe datan haussa.";
+                console.error(err);
+            }
+        }
+
+        document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
+        fetchNHLResults();
+    </script>
+</body>
+</html>
