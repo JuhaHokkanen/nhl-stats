@@ -3,37 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NHL Stats - Clean Look</title>
+    <title>NHL Kierrosraportti</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; }
-        .finnish-gradient { background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%); }
     </style>
 </head>
 <body class="text-slate-200 p-4 sm:p-8 min-h-screen">
 
     <div class="max-w-xl mx-auto">
         <header class="mb-12 text-center">
-            <h1 class="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-2">NHL Kierrosraportti</h1>
-            <div class="flex items-center justify-between bg-slate-900/50 rounded-full p-1 border border-slate-800">
+            <h1 class="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-2">NHL Ottelutulokset</h1>
+            <div class="flex items-center justify-between bg-slate-900/50 rounded-full p-1 border border-slate-800 shadow-lg">
                 <button onclick="changeDate(-1)" class="w-10 h-10 flex items-center justify-center hover:bg-slate-800 rounded-full transition-all text-slate-400">←</button>
                 <input type="date" id="datePicker" onchange="selectDate(this.value)" class="bg-transparent text-sm font-bold text-white outline-none cursor-pointer px-4">
                 <button onclick="changeDate(1)" class="w-10 h-10 flex items-center justify-center hover:bg-slate-800 rounded-full transition-all text-slate-400">→</button>
             </div>
         </header>
 
-        <div id="finnishSummary" class="hidden mb-12 p-6 finnish-gradient rounded-3xl shadow-2xl shadow-blue-500/20 animate-in fade-in zoom-in duration-500">
-            <p class="text-[10px] font-black uppercase tracking-widest text-blue-100/80 mb-1">Suomalaiset tehot</p>
-            <div id="summaryText" class="text-2xl font-extrabold text-white italic tracking-tighter"></div>
-        </div>
-
-        <div id="loading" class="hidden text-center py-20 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Päivitetään tilastoja...</div>
+        <div id="loading" class="hidden text-center py-20 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Päivitetään otteluita...</div>
         <div id="resultsContainer" class="space-y-12"></div>
     </div>
 
     <script>
-        const finnishIds = [8478420, 8478427, 8477493, 8476455, 8477931, 8480002, 8477444, 8479344, 8482671, 8482149, 8480830, 8479318, 8480145, 8481534, 8475828, 8479337, 8481546, 8484166, 8482745, 8480222];
         let currentDate = new Date();
         currentDate.setHours(currentDate.getHours() - 8);
         document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
@@ -48,11 +41,9 @@
         async function fetchNHLResults() {
             const container = document.getElementById('resultsContainer');
             const loadingDiv = document.getElementById('loading');
-            const summaryDiv = document.getElementById('finnishSummary');
             const dateStr = currentDate.toISOString().split('T')[0];
             
             container.innerHTML = '';
-            summaryDiv.classList.add('hidden');
             loadingDiv.classList.remove('hidden');
 
             try {
@@ -67,13 +58,10 @@
                     return;
                 }
 
-                let fGoals = 0; let fAssists = 0;
-
                 games.forEach(game => {
                     const gameSection = document.createElement('div');
-                    gameSection.className = "animate-in slide-in-from-bottom-4 duration-700";
+                    gameSection.className = "animate-in slide-in-from-bottom-2 duration-500";
                     
-                    // Ottelun tulosrivi
                     let html = `
                         <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
                             <div class="flex gap-4 items-center">
@@ -82,30 +70,26 @@
                                 <span class="text-xl font-extrabold text-white tracking-tighter">${game.homeTeam.abbrev}</span>
                             </div>
                             <div class="text-2xl font-black text-slate-400 tabular-nums tracking-tight">
-                                <span class="${game.awayTeam.score > game.homeTeam.score ? 'text-blue-500' : ''}">${game.awayTeam.score}</span>
+                                <span>${game.awayTeam.score}</span>
                                 <span class="mx-1 font-normal text-slate-800">-</span>
-                                <span class="${game.homeTeam.score > game.awayTeam.score ? 'text-blue-500' : ''}">${game.homeTeam.score}</span>
+                                <span>${game.homeTeam.score}</span>
                             </div>
                         </div>
                         <div class="space-y-6">`;
 
                     if (game.goals && game.goals.length > 0) {
                         game.goals.forEach(goal => {
-                            const isFinScorer = finnishIds.includes(goal.playerId);
-                            if (isFinScorer) fGoals++;
-
                             let assistNames = [];
                             if (goal.assists) {
                                 goal.assists.forEach(asst => {
                                     assistNames.push(asst.name?.default || asst.name);
-                                    if (finnishIds.includes(asst.playerId)) fAssists++;
                                 });
                             }
 
                             html += `
-                                <div class="relative pl-4 border-l-2 ${isFinScorer ? 'border-blue-500' : 'border-slate-800'}">
+                                <div class="relative pl-4 border-l-2 border-slate-800">
                                     <div class="flex justify-between items-baseline mb-1">
-                                        <h4 class="text-sm font-bold ${isFinScorer ? 'text-blue-400' : 'text-slate-200'}">
+                                        <h4 class="text-sm font-bold text-slate-200">
                                             ${goal.firstName.default} ${goal.lastName.default}
                                             <span class="text-[10px] text-slate-600 font-normal ml-2 uppercase tracking-tighter">${goal.teamAbbrev.default || goal.teamAbbrev}</span>
                                         </h4>
@@ -117,7 +101,7 @@
                                 </div>`;
                         });
                     } else {
-                        html += `<p class="text-[10px] text-slate-700 italic uppercase">Ei maaleja</p>`;
+                        html += `<p class="text-[10px] text-slate-700 italic uppercase">Ei maaleja raportoitu</p>`;
                     }
 
                     html += `</div>`;
@@ -125,13 +109,8 @@
                     container.appendChild(gameSection);
                 });
 
-                if (fGoals > 0 || fAssists > 0) {
-                    document.getElementById('summaryText').innerText = `${fGoals} MAALIA & ${fAssists} SYÖTTÖÄ`;
-                    summaryDiv.classList.remove('hidden');
-                }
-
             } catch (err) {
-                loadingDiv.innerHTML = "VIRHE DATAN HAUSSA.";
+                loadingDiv.innerHTML = "VIRHE TIETOJEN HAUSSA.";
             }
         }
         fetchNHLResults();
