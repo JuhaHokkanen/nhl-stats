@@ -3,142 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NHL Suomi - Raportti</title>
+    <title>NHL Stats - Clean Look</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; }
+        .finnish-gradient { background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%); }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 p-4 min-h-screen font-sans">
+<body class="text-slate-200 p-4 sm:p-8 min-h-screen">
 
-    <div class="max-w-2xl mx-auto">
-        <header class="text-center my-6">
-            <h1 class="text-3xl font-black uppercase italic tracking-tighter text-white">
-                NHL <span class="text-blue-500 underline decoration-4 text-2xl">Kierrosraportti</span>
-            </h1>
-            
-            <div class="flex items-center justify-center gap-4 mt-8 bg-slate-900 p-4 rounded-3xl border border-slate-800 shadow-2xl font-bold">
-                <button onclick="changeDate(-1)" class="p-2 hover:text-blue-400 transition-colors">← Edellinen</button>
-                <input type="date" id="datePicker" onchange="selectDate(this.value)" class="bg-slate-800 text-white text-xs p-2 rounded-lg border border-slate-700 outline-none">
-                <button onclick="changeDate(1)" class="p-2 hover:text-blue-400 transition-colors">Seuraava →</button>
+    <div class="max-w-xl mx-auto">
+        <header class="mb-12 text-center">
+            <h1 class="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-2">NHL Kierrosraportti</h1>
+            <div class="flex items-center justify-between bg-slate-900/50 rounded-full p-1 border border-slate-800">
+                <button onclick="changeDate(-1)" class="w-10 h-10 flex items-center justify-center hover:bg-slate-800 rounded-full transition-all text-slate-400">←</button>
+                <input type="date" id="datePicker" onchange="selectDate(this.value)" class="bg-transparent text-sm font-bold text-white outline-none cursor-pointer px-4">
+                <button onclick="changeDate(1)" class="w-10 h-10 flex items-center justify-center hover:bg-slate-800 rounded-full transition-all text-slate-400">→</button>
             </div>
         </header>
 
-        <div id="finnishSummary" class="mb-6 p-4 bg-blue-600/10 border border-blue-500/30 rounded-2xl text-center hidden font-black text-blue-400 uppercase italic italic"></div>
-
-        <div id="loading" class="hidden text-center py-20 text-blue-500 font-bold animate-pulse text-xs tracking-widest uppercase">
-            Puretaan pöytäkirjoja...
+        <div id="finnishSummary" class="hidden mb-12 p-6 finnish-gradient rounded-3xl shadow-2xl shadow-blue-500/20 animate-in fade-in zoom-in duration-500">
+            <p class="text-[10px] font-black uppercase tracking-widest text-blue-100/80 mb-1">Suomalaiset tehot</p>
+            <div id="summaryText" class="text-2xl font-extrabold text-white italic tracking-tighter"></div>
         </div>
 
-        <div id="resultsContainer" class="space-y-6 pb-20 text-xs"></div>
+        <div id="loading" class="hidden text-center py-20 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Päivitetään tilastoja...</div>
+        <div id="resultsContainer" class="space-y-12"></div>
     </div>
 
     <script>
-    // Puhdistettu suomalais-ID-lista
-    const finnishIds = [
-        8478420, 8478427, 8477493, 8476455, 8477931, 8480002, 8477444, 8479344, 
-        8482671, 8482149, 8480830, 8479318, 8480145, 8481534, 8475828, 8479337,
-        8481546, 8484166, 8482745, 8480222, 8482093, 8483505, 8480068, 8482141
-    ];
-
-    let currentDate = new Date();
-    currentDate.setHours(currentDate.getHours() - 8); 
-
-    document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
-
-    function selectDate(val) {
-        currentDate = new Date(val);
-        fetchNHLResults();
-    }
-
-    function changeDate(days) {
-        currentDate.setDate(currentDate.getDate() + days);
+        const finnishIds = [8478420, 8478427, 8477493, 8476455, 8477931, 8480002, 8477444, 8479344, 8482671, 8482149, 8480830, 8479318, 8480145, 8481534, 8475828, 8479337, 8481546, 8484166, 8482745, 8480222];
+        let currentDate = new Date();
+        currentDate.setHours(currentDate.getHours() - 8);
         document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
-        fetchNHLResults();
-    }
 
-    async function fetchNHLResults() {
-        const container = document.getElementById('resultsContainer');
-        const loadingDiv = document.getElementById('loading');
-        const summaryDiv = document.getElementById('finnishSummary');
-        const dateStr = currentDate.toISOString().split('T')[0];
-        
-        container.innerHTML = '';
-        summaryDiv.classList.add('hidden');
-        loadingDiv.classList.remove('hidden');
-
-        try {
-            // Käytetään suoraa proxy-yhteyttä
-            const url = `https://corsproxy.io/?${encodeURIComponent('https://api-web.nhle.com/v1/score/' + dateStr)}`;
-            const response = await fetch(url);
-            const data = await response.json();
-            const games = data.games || [];
-            
-            loadingDiv.classList.add('hidden');
-
-            if (games.length === 0) {
-                container.innerHTML = `<div class="text-center p-10 text-slate-600 uppercase font-bold italic tracking-widest">Ei otteluita tälle päivälle.</div>`;
-                return;
-            }
-
-            let totalFinGoals = 0;
-            let totalFinAssists = 0;
-
-            games.forEach(game => {
-                const gameCard = document.createElement('div');
-                gameCard.className = "bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl mb-6";
-                
-                let html = `
-                    <div class="bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b border-slate-700 font-bold uppercase italic tracking-tighter">
-                        <span class="text-white">${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}</span>
-                        <span class="text-blue-400 font-mono text-xl">${game.awayTeam.score} - ${game.homeTeam.score}</span>
-                    </div>
-                    <div class="p-4 space-y-2">`;
-
-                if (game.goals && game.goals.length > 0) {
-                    game.goals.forEach(goal => {
-                        const isFinScorer = finnishIds.includes(goal.playerId);
-                        if (isFinScorer) totalFinGoals++;
-
-                        // Syöttäjien käsittely
-                        let assists = [];
-                        if (goal.assists && goal.assists.length > 0) {
-                            goal.assists.forEach(asst => {
-                                const aName = asst.name?.default || asst.name || "Pelaaja";
-                                assists.push(aName);
-                                if (finnishIds.includes(asst.playerId)) totalFinAssists++;
-                            });
-                        }
-
-                        const assistText = assists.length > 0 ? "Syöttäjät: " + assists.join(", ") : "Ilman syöttäjiä";
-
-                        html += `
-                            <div class="p-2 rounded-xl border ${isFinScorer ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800'}">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-xs ${isFinScorer ? 'text-blue-400 font-black' : 'text-slate-300'}">
-                                        ${isFinScorer ? '🇫🇮 ' : ''}${goal.firstName.default} ${goal.lastName.default} (${goal.teamAbbrev.default || goal.teamAbbrev})
-                                    </span>
-                                    <span class="text-[10px] text-slate-500 font-mono">${goal.timeInPeriod}</span>
-                                </div>
-                                <div class="text-[9px] text-slate-500 italic mt-0.5">${assistText}</div>
-                            </div>`;
-                    });
-                } else {
-                    html += `<p class="text-[9px] text-slate-700 text-center py-1 italic">Ei maaleja</p>`;
-                }
-                html += `</div>`;
-                gameCard.innerHTML = html;
-                container.appendChild(gameCard);
-            });
-
-            if (totalFinGoals > 0 || totalFinAssists > 0) {
-                summaryDiv.innerHTML = `🇫🇮 Suomalaiset tänään: ${totalFinGoals} maalia & ${totalFinAssists} syöttöä`;
-                summaryDiv.classList.remove('hidden');
-            }
-
-        } catch (err) {
-            loadingDiv.innerHTML = "Virhe haettaessa dataa.";
+        function selectDate(val) { currentDate = new Date(val); fetchNHLResults(); }
+        function changeDate(days) { 
+            currentDate.setDate(currentDate.getDate() + days); 
+            document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
+            fetchNHLResults(); 
         }
-    }
-    fetchNHLResults();
-</script>
-    
+
+        async function fetchNHLResults() {
+            const container = document.getElementById('resultsContainer');
+            const loadingDiv = document.getElementById('loading');
+            const summaryDiv = document.getElementById('finnishSummary');
+            const dateStr = currentDate.toISOString().split('T')[0];
+            
+            container.innerHTML = '';
+            summaryDiv.classList.add('hidden');
+            loadingDiv.classList.remove('hidden');
+
+            try {
+                const url = `https://corsproxy.io/?${encodeURIComponent('https://api-web.nhle.com/v1/score/' + dateStr)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                const games = data.games || [];
+                loadingDiv.classList.add('hidden');
+
+                if (games.length === 0) {
+                    container.innerHTML = `<div class="text-center text-slate-600 text-xs font-medium italic">Ei otteluita tänä päivänä.</div>`;
+                    return;
+                }
+
+                let fGoals = 0; let fAssists = 0;
+
+                games.forEach(game => {
+                    const gameSection = document.createElement('div');
+                    gameSection.className = "animate-in slide-in-from-bottom-4 duration-700";
+                    
+                    // Ottelun tulosrivi
+                    let html = `
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+                            <div class="flex gap-4 items-center">
+                                <span class="text-xl font-extrabold text-white tracking-tighter">${game.awayTeam.abbrev}</span>
+                                <span class="text-slate-700 font-bold text-xs uppercase">vs</span>
+                                <span class="text-xl font-extrabold text-white tracking-tighter">${game.homeTeam.abbrev}</span>
+                            </div>
+                            <div class="text-2xl font-black text-slate-400 tabular-nums tracking-tight">
+                                <span class="${game.awayTeam.score > game.homeTeam.score ? 'text-blue-500' : ''}">${game.awayTeam.score}</span>
+                                <span class="mx-1 font-normal text-slate-800">-</span>
+                                <span class="${game.homeTeam.score > game.awayTeam.score ? 'text-blue-500' : ''}">${game.homeTeam.score}</span>
+                            </div>
+                        </div>
+                        <div class="space-y-6">`;
+
+                    if (game.goals && game.goals.length > 0) {
+                        game.goals.forEach(goal => {
+                            const isFinScorer = finnishIds.includes(goal.playerId);
+                            if (isFinScorer) fGoals++;
+
+                            let assistNames = [];
+                            if (goal.assists) {
+                                goal.assists.forEach(asst => {
+                                    assistNames.push(asst.name?.default || asst.name);
+                                    if (finnishIds.includes(asst.playerId)) fAssists++;
+                                });
+                            }
+
+                            html += `
+                                <div class="relative pl-4 border-l-2 ${isFinScorer ? 'border-blue-500' : 'border-slate-800'}">
+                                    <div class="flex justify-between items-baseline mb-1">
+                                        <h4 class="text-sm font-bold ${isFinScorer ? 'text-blue-400' : 'text-slate-200'}">
+                                            ${goal.firstName.default} ${goal.lastName.default}
+                                            <span class="text-[10px] text-slate-600 font-normal ml-2 uppercase tracking-tighter">${goal.teamAbbrev.default || goal.teamAbbrev}</span>
+                                        </h4>
+                                        <span class="text-[10px] font-mono text-slate-600">${goal.timeInPeriod}</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 italic leading-relaxed">
+                                        ${assistNames.length > 0 ? assistNames.join(', ') : 'Ilman syöttäjiä'}
+                                    </p>
+                                </div>`;
+                        });
+                    } else {
+                        html += `<p class="text-[10px] text-slate-700 italic uppercase">Ei maaleja</p>`;
+                    }
+
+                    html += `</div>`;
+                    gameSection.innerHTML = html;
+                    container.appendChild(gameSection);
+                });
+
+                if (fGoals > 0 || fAssists > 0) {
+                    document.getElementById('summaryText').innerText = `${fGoals} MAALIA & ${fAssists} SYÖTTÖÄ`;
+                    summaryDiv.classList.remove('hidden');
+                }
+
+            } catch (err) {
+                loadingDiv.innerHTML = "VIRHE DATAN HAUSSA.";
+            }
+        }
+        fetchNHLResults();
+    </script>
 </body>
 </html>
