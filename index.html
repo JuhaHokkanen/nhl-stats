@@ -29,127 +29,130 @@
     </div>
 
     <script>
-        // Suomalaisten NHL-pelaajien ID-lista (sisältää tähdet ja nousevat nimet)
-        const finnishIds = [
-            8478420, 8478427, 8477493, 8476455, 8477931, 8480002, 8477444, 8479344, 
-            8482671, 8482149, 8480830, 8479318, 8480145, 8481534, 8475828, 8479337,
-            8481546, 8484166, 8482745, 8480222, 8482093, 8483505
-        ];
 
-        // Asetetaan oletuspäiväksi "viime yö" (huomioiden aikaero)
-        let currentDate = new Date();
-        currentDate.setHours(currentDate.getHours() - 8);
+async function fetchNHLResults() {
+    const container = document.getElementById('resultsContainer');
+    const loadingDiv = document.getElementById('loading');
+    const dateStr = currentDate.toISOString().split('T')[0];
+    
+    container.innerHTML = '';
+    loadingDiv.classList.remove('hidden');
 
-        // Alustetaan kalenterinäkymä
-        document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
+    // Luodaan paikka Suomi-yhteenvedolle, jos sitä ei ole
+    let summaryDiv = document.getElementById('finnishSummary');
+    if (!summaryDiv) {
+        summaryDiv = document.createElement('div');
+        summaryDiv.id = 'finnishSummary';
+        summaryDiv.className = "mb-6 p-4 bg-blue-600/10 border border-blue-500/30 rounded-2xl text-center hidden";
+        container.parentNode.insertBefore(summaryDiv, container);
+    } else {
+        summaryDiv.classList.add('hidden');
+    }
 
-        function selectDate(val) {
-            currentDate = new Date(val);
-            fetchNHLResults();
+    try {
+        const targetUrl = `https://api-web.nhle.com/v1/score/${dateStr}`;
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error("Yhteysvirhe");
+
+        const data = await response.json();
+        const games = data.games || [];
+        
+        loadingDiv.classList.add('hidden');
+
+        if (games.length === 0) {
+            container.innerHTML = `<div class="text-center p-16 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800 text-slate-600 uppercase text-[10px] tracking-widest font-bold">Ei otteluita tänä päivänä</div>`;
+            return;
         }
 
-        function changeDate(days) {
-            currentDate.setDate(currentDate.getDate() + days);
-            document.getElementById('datePicker').value = currentDate.toISOString().split('T')[0];
-            fetchNHLResults();
-        }
+        let totalGoals = 0;
+        let totalAssists = 0;
 
-        async function fetchNHLResults() {
-            const container = document.getElementById('resultsContainer');
-            const loadingDiv = document.getElementById('loading');
-            const dateStr = currentDate.toISOString().split('T')[0];
+        games.forEach(game => {
+            const gameCard = document.createElement('div');
+            gameCard.className = "bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl mb-6";
             
-            container.innerHTML = '';
-            loadingDiv.classList.remove('hidden');
+            const awayScore = game.awayTeam?.score ?? 0;
+            const homeScore = game.homeTeam?.score ?? 0;
+            const status = game.gameState === 'FINAL' ? 'LOPPUNUT' : (game.gameState === 'LIVE' ? 'LIVE' : 'TULEVA');
 
-            try {
-                // Käytetään suoraa proxyä GitHub Pages -yhteensopivuuden varmistamiseksi
-                const targetUrl = `https://api-web.nhle.com/v1/score/${dateStr}`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-                
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error("Yhteysvirhe");
+            let html = `
+                <div class="bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b border-slate-700">
+                    <div class="flex items-center gap-3">
+                        <span class="font-black text-xl text-white italic tracking-tighter">${game.awayTeam.abbrev}</span>
+                        <span class="text-slate-600 font-bold text-sm">@</span>
+                        <span class="font-black text-xl text-white italic tracking-tighter">${game.homeTeam.abbrev}</span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">${status}</p>
+                        <span class="text-2xl font-black text-blue-400 font-mono">${awayScore} - ${homeScore}</span>
+                    </div>
+                </div>
+                <div class="p-5 space-y-3">`;
 
-                const data = await response.json();
-                const games = data.games || [];
-                
-                loadingDiv.classList.add('hidden');
-
-                if (games.length === 0) {
-                    container.innerHTML = `<div class="text-center p-16 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800 text-slate-600 uppercase text-[10px] tracking-widest font-bold">Ei otteluita tänä päivänä</div>`;
-                    return;
-                }
-
-                games.forEach(game => {
-                    const gameCard = document.createElement('div');
-                    gameCard.className = "bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl mb-6 transition-all hover:border-slate-700";
+            if (game.goals && game.goals.length > 0) {
+                game.goals.forEach(goal => {
+                    const isFinScorer = finnishIds.includes(goal.playerId);
+                    if (isFinScorer) totalGoals++;
                     
-                    const awayScore = game.awayTeam?.score ?? 0;
-                    const homeScore = game.homeTeam?.score ?? 0;
-                    const status = game.gameState === 'FINAL' ? 'LOPPUNUT' : (game.gameState === 'LIVE' ? 'LIVE' : 'TULEVA');
-
-                    let html = `
-                        <div class="bg-slate-800/50 px-6 py-4 flex justify-between items-center border-b border-slate-700">
-                            <div class="flex items-center gap-3">
-                                <span class="font-black text-xl text-white italic tracking-tighter">${game.awayTeam.abbrev}</span>
-                                <span class="text-slate-600 font-bold text-sm">@</span>
-                                <span class="font-black text-xl text-white italic tracking-tighter">${game.homeTeam.abbrev}</span>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">${status}</p>
-                                <span class="text-2xl font-black text-blue-400 font-mono">${awayScore} - ${homeScore}</span>
-                            </div>
-                        </div>
-                        <div class="p-5 space-y-3">`;
-
-                    if (game.goals && game.goals.length > 0) {
-                        game.goals.forEach(goal => {
-                            const isFinScorer = finnishIds.includes(goal.playerId);
-                            
-                            // Kerätään syöttäjät ja tarkistetaan onko heissä suomalaisia
-                            let assists = [];
-                            let hasFinAssist = false;
-                            
-                            if (goal.assist1Name) {
-                                assists.push(goal.assist1Name.default || goal.assist1Name);
-                                if (finnishIds.includes(goal.assist1PlayerId)) hasFinAssist = true;
-                            }
-                            if (goal.assist2Name) {
-                                assists.push(goal.assist2Name.default || goal.assist2Name);
-                                if (finnishIds.includes(goal.assist2PlayerId)) hasFinAssist = true;
-                            }
-                            
-                            const isFinInvolved = isFinScorer || hasFinAssist;
-                            const assistText = assists.length > 0 ? `Syöttäjät: ${assists.join(', ')}` : 'Ilman syöttäjiä';
-
-                            html += `
-                                <div class="flex flex-col gap-1 p-3 rounded-2xl border ${isFinInvolved ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800 bg-slate-800/20'}">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-xs ${isFinScorer ? 'text-blue-400 font-black' : 'text-slate-200 font-bold'}">
-                                            ${isFinScorer ? '🇫🇮 ' : ''}${goal.firstName.default} ${goal.lastName.default} (${goal.teamAbbrev.default || goal.teamAbbrev})
-                                        </span>
-                                        <span class="text-[9px] text-slate-500 font-mono font-bold">${goal.timeInPeriod} / ${goal.period}. erä</span>
-                                    </div>
-                                    <div class="text-[10px] ${hasFinAssist ? 'text-blue-300/80 font-medium' : 'text-slate-500'} italic ml-1">
-                                        ${assistText}
-                                    </div>
-                                </div>`;
-                        });
-                    } else {
-                        html += `<p class="text-[10px] text-slate-700 text-center uppercase tracking-widest py-4 font-bold italic">Ei maaleja raportoitu</p>`;
+                    let assists = [];
+                    let hasFinAssist = false;
+                    
+                    // Korjattu syöttäjien haku
+                    if (goal.assist1PlayerId) {
+                        const a1Name = goal.assist1Name?.default || goal.assist1Name || "Syöttäjä";
+                        assists.push(a1Name);
+                        if (finnishIds.includes(goal.assist1PlayerId)) {
+                            hasFinAssist = true;
+                            totalAssists++;
+                        }
                     }
-                    html += `</div>`;
-                    gameCard.innerHTML = html;
-                    container.appendChild(gameCard);
+                    if (goal.assist2PlayerId) {
+                        const a2Name = goal.assist2Name?.default || goal.assist2Name || "Syöttäjä";
+                        assists.push(a2Name);
+                        if (finnishIds.includes(goal.assist2PlayerId)) {
+                            hasFinAssist = true;
+                            totalAssists++;
+                        }
+                    }
+                    
+                    const isFinInvolved = isFinScorer || hasFinAssist;
+                    const assistText = assists.length > 0 ? `Syöttäjät: ${assists.join(', ')}` : 'Ilman syöttäjiä';
+
+                    html += `
+                        <div class="flex flex-col gap-1 p-3 rounded-2xl border ${isFinInvolved ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800 bg-slate-800/20'}">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs ${isFinScorer ? 'text-blue-400 font-black' : 'text-slate-200 font-bold'}">
+                                    ${isFinScorer ? '🇫🇮 ' : ''}${goal.firstName?.default || goal.firstName} ${goal.lastName?.default || goal.lastName} (${goal.teamAbbrev})
+                                </span>
+                                <span class="text-[9px] text-slate-500 font-mono font-bold">${goal.timeInPeriod} / ${goal.period}. erä</span>
+                            </div>
+                            <div class="text-[10px] ${hasFinAssist ? 'text-blue-300/80 font-medium' : 'text-slate-500'} italic ml-1">
+                                ${assistText}
+                            </div>
+                        </div>`;
                 });
-            } catch (err) {
-                loadingDiv.innerHTML = `<div class="p-4 bg-red-900/20 border border-red-500/50 rounded-2xl text-red-400 text-[10px] font-bold uppercase tracking-widest text-center">Yhteysvirhe NHL-palvelimeen. Yritä uudelleen.</div>`;
-                console.error(err);
+            } else {
+                html += `<p class="text-[10px] text-slate-700 text-center uppercase tracking-widest py-4 font-bold italic">Ei maaleja raportoitu</p>`;
             }
+            html += `</div>`;
+            gameCard.innerHTML = html;
+            container.appendChild(gameCard);
+        });
+
+        // Päivitetään yhteenveto
+        if (totalGoals > 0 || totalAssists > 0) {
+            summaryDiv.innerHTML = `<p class="text-sm font-black text-blue-400 uppercase tracking-tighter italic">🇫🇮 Suomalaistehot: ${totalGoals} maalia & ${totalAssists} syöttöä</p>`;
+            summaryDiv.classList.remove('hidden');
         }
 
-        // Käynnistetään haku ensilatauksella
-        fetchNHLResults();
+    } catch (err) {
+        loadingDiv.innerHTML = `<div class="p-4 bg-red-900/20 border border-red-500/50 rounded-2xl text-red-400 text-[10px] font-bold uppercase tracking-widest text-center">Yhteysvirhe NHL-palvelimeen.</div>`;
+    }
+}
+
+
     </script>
 </body>
 </html>
