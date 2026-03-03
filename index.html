@@ -62,23 +62,27 @@
                     const gameSection = document.createElement('div');
                     gameSection.className = "animate-in slide-in-from-bottom-2 duration-500 border-b border-slate-800/50 pb-12 last:border-0";
                     
+                    const isStarted = game.gameState !== 'FUT' && game.gameState !== 'PRE';
                     const gameVideoUrl = `https://www.nhl.com/gamecenter/${game.id}`;
+
+                    // Tulos tai alkamisaika
+                    let scoreDisplay = isStarted 
+                        ? `<span>${game.awayTeam.score} - ${game.homeTeam.score}</span>`
+                        : `<span class="text-xs uppercase tracking-widest text-slate-600 italic">Peli ei ole vielä alkanut</span>`;
 
                     let html = `
                         <div class="flex items-center justify-between mb-8">
                             <div class="flex flex-col">
                                 <span class="text-2xl font-black text-white tracking-tighter italic uppercase">${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}</span>
-                                <a href="${gameVideoUrl}" target="_blank" class="text-[10px] font-black text-blue-500 hover:text-blue-400 mt-2 uppercase tracking-widest">
-                                    Katso ottelukooste →
-                                </a>
+                                ${isStarted ? `<a href="${gameVideoUrl}" target="_blank" class="text-[10px] font-black text-blue-500 hover:text-blue-400 mt-2 uppercase tracking-widest">Katso ottelukooste →</a>` : ''}
                             </div>
-                            <div class="text-3xl font-black text-slate-400 tabular-nums">
-                                <span>${game.awayTeam.score} - ${game.homeTeam.score}</span>
+                            <div class="text-3xl font-black text-slate-400 tabular-nums text-right">
+                                ${scoreDisplay}
                             </div>
                         </div>
                         <div class="space-y-8">`;
 
-                    if (game.goals && game.goals.length > 0) {
+                    if (isStarted && game.goals && game.goals.length > 0) {
                         game.goals.forEach(goal => {
                             let assistNames = [];
                             if (goal.assists) {
@@ -101,8 +105,8 @@
                                     </p>
                                 </div>`;
                         });
-                    } else {
-                        html += `<p class="text-sm text-slate-700 italic uppercase tracking-wider">Ei maaleja raportoitu</p>`;
+                    } else if (isStarted) {
+                        html += `<p class="text-sm text-slate-700 italic uppercase tracking-wider font-medium">Maaleja ei ole vielä tehty</p>`;
                     }
 
                     html += `</div>`;
