@@ -38,6 +38,13 @@
             fetchNHLResults(); 
         }
 
+        // Apu-funktio erän nimeämiseen
+        function formatPeriod(period) {
+            if (period === 4) return "JA";
+            if (period === 5) return "VL";
+            return period + ". erä";
+        }
+
         async function fetchNHLResults() {
             const container = document.getElementById('resultsContainer');
             const loadingDiv = document.getElementById('loading');
@@ -65,7 +72,6 @@
                     const isStarted = game.gameState !== 'FUT' && game.gameState !== 'PRE';
                     const gameVideoUrl = `https://www.nhl.com/gamecenter/${game.id}`;
 
-                    // Tulos tai alkamisaika
                     let scoreDisplay = isStarted 
                         ? `<span>${game.awayTeam.score} - ${game.homeTeam.score}</span>`
                         : `<span class="text-xs uppercase tracking-widest text-slate-600 italic">Peli ei ole vielä alkanut</span>`;
@@ -98,7 +104,10 @@
                                             ${goal.firstName.default} ${goal.lastName.default}
                                             <span class="text-xs text-slate-500 font-bold ml-2 uppercase tracking-widest">${goal.teamAbbrev.default || goal.teamAbbrev}</span>
                                         </h4>
-                                        <span class="text-xs font-mono font-bold text-slate-500">${goal.timeInPeriod}</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">${formatPeriod(goal.period)}</span>
+                                            <span class="text-xs font-mono font-bold text-slate-500">${goal.timeInPeriod}</span>
+                                        </div>
                                     </div>
                                     <p class="text-sm text-slate-400 italic leading-relaxed font-medium">
                                         ${assistNames.length > 0 ? 'Syöttäjät: ' + assistNames.join(', ') : 'Ilman syöttäjiä'}
