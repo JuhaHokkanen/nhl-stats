@@ -12,7 +12,7 @@
 </head>
 <body class="text-slate-200 p-4 sm:p-8 min-h-screen">
 
-    <div class="max-w-xl mx-auto">
+    <div class="max-w-2xl mx-auto">
         <header class="mb-12 text-center">
             <h1 class="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-2">NHL Kierros & Tilastot</h1>
             <div class="flex items-center justify-between bg-slate-900/50 rounded-full p-1 border border-slate-800 shadow-lg">
@@ -118,7 +118,7 @@
                     }
                     html += `</div>`;
 
-                    // MAALIVAHDIT
+                    // MAALIVAHDIT (Jaettu sarakkeisiin)
                     if (isStarted) {
                         try {
                             const boxUrl = `https://corsproxy.io/?${encodeURIComponent('https://api-web.nhle.com/v1/gamecenter/' + game.id + '/boxscore')}`;
@@ -126,35 +126,42 @@
                             const boxData = await boxRes.json();
                             
                             html += `<div class="space-y-4">
-                                        <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Maalivahdit</h3>
-                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">`;
+                                        <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 text-center">Maalivahtien torjunnat</h3>
+                                        <div class="grid grid-cols-2 gap-4">`;
 
-                            ['awayTeam', 'homeTeam'].forEach(side => {
-                                const goalies = boxData.playerByGameStats[side].goalies;
-                                goalies.forEach(g => {
-                                    const saves = g.saves || 0;
-                                    const ga = g.goalsAgainst || 0;
-                                    const shots = saves + ga;
-                                    let pct = ".000";
-                                    if (shots > 0) pct = (saves / shots).toFixed(3).replace(/^0/, '');
+                            // Luo apu-funktion maalivahdin HTML:lle
+                            const getGoalieHtml = (g) => {
+                                const saves = g.saves || 0;
+                                const ga = g.goalsAgainst || 0;
+                                const shots = saves + ga;
+                                let pct = ".000";
+                                if (shots > 0) pct = (saves / shots).toFixed(3).replace(/^0/, '');
+                                
+                                return `
+                                    <div class="bg-slate-900/40 rounded-xl p-3 border border-slate-800/60">
+                                        <div class="mb-2">
+                                            <p class="text-[11px] font-extrabold text-slate-200 truncate">${g.name.default}</p>
+                                            <p class="text-[10px] font-black text-blue-500 font-mono">${pct}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex-grow bg-slate-800 h-1 rounded-full overflow-hidden">
+                                                <div class="bg-blue-600 h-full" style="width: ${pct * 100}%"></div>
+                                            </div>
+                                            <span class="text-[10px] font-bold text-slate-400 tabular-nums whitespace-nowrap">${saves}/${shots}</span>
+                                        </div>
+                                    </div>`;
+                            };
 
-                                    html += `
-                                        <div class="bg-slate-900/40 rounded-xl p-4 border border-slate-800/60 shadow-inner">
-                                            <div class="flex justify-between items-center mb-2">
-                                                <span class="text-sm font-extrabold text-slate-200 tracking-tight">${g.name.default}</span>
-                                                <span class="text-xs font-mono font-black text-blue-500">${pct}</span>
-                                            </div>
-                                            <div class="flex items-center gap-3">
-                                                <div class="flex-grow bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                                    <div class="bg-blue-600 h-full" style="width: ${pct * 100}%"></div>
-                                                </div>
-                                                <span class="text-[11px] font-bold text-slate-500 tabular-nums">
-                                                    <span class="text-slate-200">${saves}</span>/${shots}
-                                                </span>
-                                            </div>
-                                        </div>`;
-                                });
-                            });
+                            // Vierasjoukkueen sarakkeet (Vasen)
+                            html += `<div class="space-y-2">`;
+                            boxData.playerByGameStats.awayTeam.goalies.forEach(g => html += getGoalieHtml(g));
+                            html += `</div>`;
+
+                            // Kotijoukkueen sarakkeet (Oikea)
+                            html += `<div class="space-y-2">`;
+                            boxData.playerByGameStats.homeTeam.goalies.forEach(g => html += getGoalieHtml(g));
+                            html += `</div>`;
+
                             html += `</div></div>`;
                         } catch (e) { console.error("Boxscore error", e); }
                     }
