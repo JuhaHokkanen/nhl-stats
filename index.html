@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NHL Kierrosraportti - Tulokset & Maalivahdit</title>
+    <title>NHL Kierrosraportti - Tulokset & Logot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; }
+        /* Pieni parannus logojen näkyvyyteen tummalla taustalla */
+        .team-logo { filter: drop-shadow(0 0 4px rgba(0,0,0,0.5)); }
     </style>
 </head>
 <body class="text-slate-200 p-4 sm:p-8 min-h-screen">
@@ -44,6 +46,11 @@
             return period + ". erä";
         }
 
+        // Funktio logon hakemiseen lyhenteellä
+        function getLogoUrl(abbr) {
+            return `https://assets.nhle.com/logos/nhl/svg/${abbr}_light.svg`;
+        }
+
         async function fetchNHLResults() {
             const container = document.getElementById('resultsContainer');
             const loadingDiv = document.getElementById('loading');
@@ -76,17 +83,27 @@
                         : `<span class="text-xs uppercase tracking-widest text-slate-600 italic">Ei alkanut</span>`;
 
                     let html = `
-                        <div class="flex items-center justify-between mb-8">
-                            <div class="flex flex-col">
-                                <span class="text-2xl font-black text-white tracking-tighter italic uppercase">${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}</span>
-                                ${isStarted ? `<a href="${gameVideoUrl}" target="_blank" class="text-[10px] font-black text-blue-500 mt-2 uppercase tracking-widest hover:text-blue-400">Katso kooste →</a>` : ''}
+                        <div class="flex items-center justify-between mb-8 bg-slate-900/20 p-4 rounded-2xl">
+                            <div class="flex items-center gap-4">
+                                <div class="flex -space-x-3 items-center">
+                                    <img src="${getLogoUrl(game.awayTeam.abbrev)}" class="w-12 h-12 team-logo z-10" alt="${game.awayTeam.abbrev}">
+                                    <img src="${getLogoUrl(game.homeTeam.abbrev)}" class="w-12 h-12 team-logo" alt="${game.homeTeam.abbrev}">
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-xl font-black text-white tracking-tighter italic uppercase leading-none">
+                                        ${game.awayTeam.abbrev} <span class="text-slate-600 font-normal">@</span> ${game.homeTeam.abbrev}
+                                    </span>
+                                    ${isStarted ? `<a href="${gameVideoUrl}" target="_blank" class="text-[9px] font-black text-blue-500 mt-2 uppercase tracking-widest hover:text-blue-400 transition-colors">Katso kooste →</a>` : ''}
+                                </div>
                             </div>
                             <div class="text-3xl font-black text-slate-400 tabular-nums text-right">${scoreDisplay}</div>
                         </div>`;
 
                     // MAALIT
-                    html += `<div class="mb-10 space-y-6">
-                                <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Maalit</h3>`;
+                    html += `<div class="mb-10 space-y-6 px-2">
+                                <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <span class="w-1 h-1 bg-slate-500 rounded-full"></span> Maalit
+                                </h3>`;
                     
                     if (isStarted && game.goals && game.goals.length > 0) {
                         game.goals.forEach(goal => {
@@ -95,20 +112,22 @@
                                 goal.assists.forEach(asst => assistNames.push(asst.name.default));
                             }
                             html += `
-                                <div class="relative pl-6 border-l-4 border-slate-800 py-1">
-                                    <div class="flex justify-between items-baseline mb-2">
-                                        <h4 class="text-base font-extrabold text-slate-100 tracking-tight">
-                                            ${goal.firstName.default} ${goal.lastName.default}
-                                            <span class="text-xs text-slate-500 font-bold ml-2 uppercase tracking-widest">${goal.teamAbbrev.default || goal.teamAbbrev}</span>
-                                        </h4>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">${formatPeriod(goal.period)}</span>
-                                            <span class="text-xs font-mono font-bold text-slate-500">${goal.timeInPeriod}</span>
+                                <div class="relative pl-6 border-l-4 border-slate-800 py-1 flex items-start gap-4">
+                                    <img src="${getLogoUrl(goal.teamAbbrev.default || goal.teamAbbrev)}" class="w-6 h-6 mt-0.5 opacity-80" alt="">
+                                    <div class="flex-grow">
+                                        <div class="flex justify-between items-baseline mb-1">
+                                            <h4 class="text-base font-extrabold text-slate-100 tracking-tight">
+                                                ${goal.firstName.default} ${goal.lastName.default}
+                                            </h4>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">${formatPeriod(goal.period)}</span>
+                                                <span class="text-xs font-mono font-bold text-slate-500">${goal.timeInPeriod}</span>
+                                            </div>
                                         </div>
+                                        <p class="text-sm text-slate-400 italic leading-relaxed font-medium">
+                                            ${assistNames.length > 0 ? 'Syöttäjät: ' + assistNames.join(', ') : 'Ilman syöttäjiä'}
+                                        </p>
                                     </div>
-                                    <p class="text-sm text-slate-400 italic leading-relaxed font-medium">
-                                        ${assistNames.length > 0 ? 'Syöttäjät: ' + assistNames.join(', ') : 'Ilman syöttäjiä'}
-                                    </p>
                                 </div>`;
                         });
                     } else if (isStarted) {
@@ -118,19 +137,18 @@
                     }
                     html += `</div>`;
 
-                    // MAALIVAHDIT (Jaettu sarakkeisiin)
+                    // MAALIVAHDIT
                     if (isStarted) {
                         try {
                             const boxUrl = `https://corsproxy.io/?${encodeURIComponent('https://api-web.nhle.com/v1/gamecenter/' + game.id + '/boxscore')}`;
                             const boxRes = await fetch(boxUrl);
                             const boxData = await boxRes.json();
                             
-                            html += `<div class="space-y-4">
+                            html += `<div class="space-y-4 px-2">
                                         <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 text-center">Maalivahtien torjunnat</h3>
                                         <div class="grid grid-cols-2 gap-4">`;
 
-                            // Luo apu-funktion maalivahdin HTML:lle
-                            const getGoalieHtml = (g) => {
+                            const getGoalieHtml = (g, teamAbbr) => {
                                 const saves = g.saves || 0;
                                 const ga = g.goalsAgainst || 0;
                                 const shots = saves + ga;
@@ -138,28 +156,29 @@
                                 if (shots > 0) pct = (saves / shots).toFixed(3).replace(/^0/, '');
                                 
                                 return `
-                                    <div class="bg-slate-900/40 rounded-xl p-3 border border-slate-800/60">
-                                        <div class="mb-2">
-                                            <p class="text-[11px] font-extrabold text-slate-200 truncate">${g.name.default}</p>
-                                            <p class="text-[10px] font-black text-blue-500 font-mono">${pct}</p>
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <div class="flex-grow bg-slate-800 h-1 rounded-full overflow-hidden">
-                                                <div class="bg-blue-600 h-full" style="width: ${pct * 100}%"></div>
+                                    <div class="bg-slate-900/40 rounded-xl p-3 border border-slate-800/60 flex flex-col items-center text-center">
+                                        <img src="${getLogoUrl(teamAbbr)}" class="w-8 h-8 mb-2 opacity-30 absolute grayscale pointer-events-none" alt="">
+                                        <div class="relative z-10 w-full">
+                                            <div class="mb-2">
+                                                <p class="text-[11px] font-extrabold text-slate-200 truncate">${g.name.default}</p>
+                                                <p class="text-[10px] font-black text-blue-500 font-mono">${pct}</p>
                                             </div>
-                                            <span class="text-[10px] font-bold text-slate-400 tabular-nums whitespace-nowrap">${saves}/${shots}</span>
+                                            <div class="flex items-center gap-2">
+                                                <div class="flex-grow bg-slate-800 h-1 rounded-full overflow-hidden">
+                                                    <div class="bg-blue-600 h-full" style="width: ${pct * 100}%"></div>
+                                                </div>
+                                                <span class="text-[10px] font-bold text-slate-400 tabular-nums">${saves}/${shots}</span>
+                                            </div>
                                         </div>
                                     </div>`;
                             };
 
-                            // Vierasjoukkueen sarakkeet (Vasen)
                             html += `<div class="space-y-2">`;
-                            boxData.playerByGameStats.awayTeam.goalies.forEach(g => html += getGoalieHtml(g));
+                            boxData.playerByGameStats.awayTeam.goalies.forEach(g => html += getGoalieHtml(g, game.awayTeam.abbrev));
                             html += `</div>`;
 
-                            // Kotijoukkueen sarakkeet (Oikea)
                             html += `<div class="space-y-2">`;
-                            boxData.playerByGameStats.homeTeam.goalies.forEach(g => html += getGoalieHtml(g));
+                            boxData.playerByGameStats.homeTeam.goalies.forEach(g => html += getGoalieHtml(g, game.homeTeam.abbrev));
                             html += `</div>`;
 
                             html += `</div></div>`;
