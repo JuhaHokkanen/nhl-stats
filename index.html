@@ -1,38 +1,3 @@
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-
-    // 1. REITTIVALINTA: Jos pyyntö on /api/score
-    if (url.pathname === '/api/score') {
-      const date = url.searchParams.get('date');
-      const nhlApi = `https://api-web.nhle.com/v1/score/${date}`;
-      
-      try {
-        const response = await fetch(nhlApi, {
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        const data = await response.json();
-        
-        return new Response(JSON.stringify(data), {
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*' // Sallii haun omalta sivulta
-          }
-        });
-      } catch (e) {
-        return new Response(JSON.stringify({ error: 'NHL API ei vastannut' }), { status: 500 });
-      }
-    }
-
-    // 2. REITTIVALINTA: Kaikki muut pyynnöt palauttavat HTML-sivun
-    return new Response(htmlPage, {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
-    });
-  }
-};
-
-// TÄMÄ ON SIVUSI ULKOASU JA LOGIIKKA
-const htmlPage = `
 <!DOCTYPE html>
 <html lang="fi">
 <head>
@@ -56,8 +21,8 @@ const htmlPage = `
                 <button onclick="changeDate(1)" class="w-10 h-10 flex items-center justify-center hover:bg-slate-800 rounded-full text-slate-400 font-bold text-lg">→</button>
             </div>
         </header>
-        <div id="loading" class="hidden text-center py-20 text-blue-500 text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse">Ladataan...</div>
-        <div id="resultsContainer" class="space-y-16 pb-24"></div>
+        <div id="loading" class="hidden text-center py-20 text-blue-500 text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse">Ladataan otteluita...</div>
+        <div id="resultsContainer" class="space-y-12 pb-24"></div>
     </div>
 
     <script>
@@ -83,38 +48,51 @@ const htmlPage = `
             loading.classList.remove('hidden');
             
             try {
-                // TÄRKEÄÄ: Haetaan data oman Workersin /api/score reitistä
+                // Haetaan data oman Workers-reitin kautta
                 const response = await fetch('/api/score?date=' + dateStr);
                 const data = await response.json();
                 
                 if (!data.games || data.games.length === 0) {
-                    container.innerHTML = '<p class="text-center text-slate-600 italic">Ei otteluita.</p>';
-                    loading.classList.add('hidden');
-                    return;
-                }
+                    container.innerHTML = '<p class="text-center text-slate-600 italic py-10">Ei otteluita tänä päivänä.</p>';
+                } else {
+                    data.games.forEach(game => {
+                        const isStarted = game.gameState !== 'FUT' && game.gameState !== 'PRE';
+                        const div = document.createElement('div');
+                        div.className = "bg-slate-900/40 p-6 rounded-3xl border border-slate-800/50 shadow-xl mb-8";
+                        
+                        let html = `
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://assets.nhle.com/logos/nhl/svg/${game.awayTeam.abbrev}_light.svg" class="w-10 h-10 team-logo">
+                                    <span class="text-xl font-black italic uppercase">${game.awayTeam.abbrev}</span>
+                                    <span class="text-slate-700 font-bold text-xs px-1">@</span>
+                                    <span class="text-xl font-black italic uppercase">${game.homeTeam.abbrev}</span>
+                                    <img src="https://assets.nhle.com/logos/nhl/svg/${game.homeTeam.abbrev}_light.svg" class="w-10 h-10 team-logo">
+                                </div>
+                                <div class="text-2xl font-black text-blue-500 tabular-nums">
+                                    ${isStarted ? game.awayTeam.score + ' - ' + game.homeTeam.score : '---'}
+                                </div>
+                            </div>
+                        `;
 
-                data.games.forEach(game => {
-                    const isStarted = game.gameState !== 'FUT' && game.gameState !== 'PRE';
-                    const div = document.createElement('div');
-                    div.className = "bg-slate-900/40 p-6 rounded-3xl border border-slate-800/50 shadow-xl mb-8";
-                    div.innerHTML = \`
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3 flex-1">
-                                <img src="https://assets.nhle.com/logos/nhl/svg/\${game.awayTeam.abbrev}_light.svg" class="w-10 h-10 team-logo">
-                                <span class="text-xl font-black italic uppercase">\${game.awayTeam.abbrev}</span>
-                                <span class="text-slate-700 font-bold text-xs">@</span>
-                                <span class="text-xl font-black italic uppercase">\${game.homeTeam.abbrev}</span>
-                                <img src="https://assets.nhle.com/logos/nhl/svg/\${game.homeTeam.abbrev}_light.svg" class="w-10 h-10 team-logo">
-                            </div>
-                            <div class="text-2xl font-black text-blue-500 tabular-nums">
-                                \${isStarted ? game.awayTeam.score + ' - ' + game.homeTeam.score : '---'}
-                            </div>
-                        </div>
-                    \`;
-                    container.appendChild(div);
-                });
+                        if (isStarted && game.goals) {
+                            html += '<div class="space-y-3 pt-4 border-t border-slate-800/30">';
+                            game.goals.forEach(goal => {
+                                html += `
+                                    <div class="flex justify-between items-center text-sm">
+                                        <span class="font-bold text-slate-300">${goal.firstName.default} ${goal.lastName.default} <span class="text-[10px] text-slate-600 uppercase ml-1">${goal.teamAbbrev.default}</span></span>
+                                        <span class="text-[10px] font-mono text-slate-500">${goal.period}. erä ${goal.timeInPeriod}</span>
+                                    </div>`;
+                            });
+                            html += '</div>';
+                        }
+                        
+                        div.innerHTML = html;
+                        container.appendChild(div);
+                    });
+                }
             } catch (err) {
-                container.innerHTML = '<p class="text-center text-red-500 uppercase font-black text-xs tracking-widest">Yhteysvirhe. Tarkista Workers-koodi.</p>';
+                container.innerHTML = '<p class="text-center text-red-500 font-black text-xs uppercase tracking-widest py-10">Yhteysvirhe API-reittiin</p>';
             }
             loading.classList.add('hidden');
         }
@@ -122,4 +100,3 @@ const htmlPage = `
     </script>
 </body>
 </html>
-\`;
